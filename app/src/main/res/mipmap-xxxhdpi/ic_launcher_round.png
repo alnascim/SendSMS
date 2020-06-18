@@ -1,0 +1,354 @@
+package com.example.brgt;
+import android.Manifest;
+import android.content.Intent;
+import android.location.LocationListener;
+import android.location.LocationManager;
+import android.os.Build;
+import android.os.Bundle;
+import android.os.CountDownTimer;
+import android.telephony.SmsManager;
+import android.view.View;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.TextView;
+
+import androidx.annotation.RequiresApi;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+
+import com.android.volley.AuthFailureError;
+import com.android.volley.Request;
+import com.android.volley.RequestQueue;
+import com.android.volley.Response;
+import com.android.volley.VolleyError;
+import com.android.volley.toolbox.JsonObjectRequest;
+import com.android.volley.toolbox.StringRequest;
+import com.android.volley.toolbox.Volley;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Timer;
+import java.util.TimerTask;
+
+import static com.android.volley.Request.Method.POST;
+
+public class MainActivity extends AppCompatActivity {
+
+    public smsEnviado smsenv=new smsEnviado();
+
+    private static final long START_TIME_IN_MILLIS = 20000;
+    //private static final long START_TIME_IN_MILLIS = 15000;
+    private long mTimeLeftInMillis = START_TIME_IN_MILLIS;
+    private CountDownTimer mCountDownTimer;
+    private boolean mTimerRunning;
+
+    private static final int MY_PERMISSIONS_REQUEST_SEND_SMS = 0;
+    private static final int MY_PERMISSIONS_REQUEST_READ_SMS = 10;
+
+    private String main_URL="http://prajaoficial1.hospedagemdesites.ws/dropshopping/dev/";
+
+    public String select_return_URL1 = main_URL + "php_select_return1.php";
+    public String select_return_URL2 = main_URL + "php_select_return2.php";
+    public String update_status_return_URL = main_URL + "php_update_status_return.php";
+    private String insert_URL = main_URL+"php_insert.php";
+    private String select_URL = main_URL+"php_select.php";
+    private String update_URL = main_URL+"php_update.php";
+    private String select_all_URL = main_URL+"php_select_all.php";
+    public int iSends, iEnviado, iIDTabela;
+    private String sTot;
+    private boolean bLoop;
+    private LocationManager locationManager;
+    private LocationListener locationListener;
+
+    Timer timer = new Timer();
+    String txtMessage, txtphoneNo, txtnome;
+    Date DiaAtual;
+    TextView txtAviso,txtAviso1,mTextViewCountDown;
+    EditText editId, editMessage;
+    Button btnStop, btnStart, btnLoc,btnSend1,btnSend2,btnReagenda;
+    RequestQueue requestQueue,requestQueue1,requestQueue2;
+    private Object permissions;
+    //dblshot.mysql.dbaas.com.br
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+        smsEnviado smsenv= new smsEnviado();
+        mTextViewCountDown = findViewById(R.id.text_view_countdown);
+        btnStop = (Button) findViewById(R.id.btnStop);
+        btnStart = (Button) findViewById(R.id.btnStart);
+        btnReagenda= (Button) findViewById(R.id.btnReagenda);
+/*        btnSend1=(Button) findViewById(R.id.btnSend1);
+        btnSend2=(Button) findViewById(R.id.btnSend2);*/
+        requestQueue = Volley.newRequestQueue(getApplicationContext());
+        requestQueue1 = Volley.newRequestQueue(getApplicationContext());
+        requestQueue2 = Volley.newRequestQueue(getApplicationContext());
+
+        txtAviso = (TextView) findViewById(R.id.txtAviso);
+        txtAviso1 = (TextView) findViewById(R.id.txtAviso1);
+
+        ActivityCompat.requestPermissions(MainActivity.this,
+                new String[]{Manifest.permission.SEND_SMS},
+                MY_PERMISSIONS_REQUEST_SEND_SMS);
+
+        ActivityCompat.requestPermissions(MainActivity.this,
+                new String[]{Manifest.permission.RECEIVE_SMS},
+                MY_PERMISSIONS_REQUEST_READ_SMS);
+
+        ActivityCompat.requestPermissions(MainActivity.this,
+                new String[]{Manifest.permission.READ_SMS},
+                MY_PERMISSIONS_REQUEST_READ_SMS);
+
+        select_all_date();
+        txtAviso1.setText("Total de SMS A Enviar : " + Integer.toString(smsenv.iEnviados)+"\n Total de SMS Enviado : 0 "  );
+
+        btnStart.setOnClickListener(new View.OnClickListener(){
+            @RequiresApi(api = Build.VERSION_CODES.M)
+            @Override
+            public void onClick(View view) {
+//                startService(new Intent("INICIAR_SERVICO"));
+
+                txtAviso.setText("Serviço Iniciado ! \n Aguardando Dados...");
+
+                startTimer();
+                //Task task = new Task();
+                //timer.schedule(task, 50000, 50000);
+            }
+        });
+        btnStop.setOnClickListener(new View.OnClickListener() {
+            //@RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN)
+            @Override
+            public void onClick(View view) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
+                    finishAffinity();
+                    timer.cancel();
+                    finish();
+                    //mCountDownTimer.cancel();
+                    System.exit(0);
+                }
+            }
+        });
+
+        btnReagenda.setOnClickListener(new View.OnClickListener() {
+            //@RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN)
+            @Override
+            public void onClick(View view) {
+                startActivity(new Intent( MainActivity.this, act_reagendas.class));
+            }
+        });
+    }
+
+    public void vUpdateTable(final int iID) {
+        StringRequest request = new StringRequest(Request.Method.POST,
+                update_URL, new Response.Listener<String>() {
+            @Override
+            public void onResponse(String response) {
+
+            }
+        }, new Response.ErrorListener() {
+            @Override
+            public void onErrorResponse(VolleyError error) {
+            }
+        }){
+            @Override
+            protected Map<String,String> getParams() throws AuthFailureError {
+                Map<String,String> parameters = new HashMap<String,String>();
+                parameters.put("id",Integer.toString(iID));
+                return parameters;
+            }
+        };
+        requestQueue.add(request);
+    }
+    protected <MultipleMsg> void sendSMSMessage() {
+        requestQueue = Volley.newRequestQueue(getApplicationContext());
+        JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(Request.Method.POST, select_URL, new Response.Listener<JSONObject>() {
+            @Override
+            public void onResponse(JSONObject response) {
+                int i = 0;
+                try {
+                    JSONArray usuarios = response.getJSONArray("usuarios");
+                    JSONObject usuario = usuarios.getJSONObject(i);
+                    txtnome = usuario.getString("nome");
+                    txtphoneNo= usuario.getString("telefone");
+                    iIDTabela=usuario.getInt("id");
+
+                    txtMessage="Prezado(a) ";
+                    txtMessage=txtMessage+txtnome+" ! \n";
+                    txtMessage=txtMessage+"Informamos para que no próximo dia "+ usuario.getString("ag_data")+" às "+usuario.getString("ag_hora")+"\n";
+                    txtMessage=txtMessage + "o(a) Sr(a) compareça ao nosso consultório para uma sessão de tratamento odontológico.\n";
+
+                    txtMessage=txtMessage + " \n";
+                    txtMessage=txtMessage + "Atenciosamente, \n";
+                    txtMessage=txtMessage + "Bright \n";
+                    txtMessage=txtMessage + "Assistência Odontológica \n\n";
+
+                    txtMessage=txtMessage + "Digite Apenas a letra C ou R: \n";
+                    txtMessage=txtMessage + "C - Para CONFIRMAR.\n";
+                    txtMessage=txtMessage + "R - Para REAGENDAR.\n\n";
+                    txtMessage=txtMessage + "Acesse o Link abaixo, para ter a localização correta!.\n";
+
+                    //Sem Avaliação
+                    txtMessage=txtMessage + "https://goo.gl/maps/Grqr6PjqGNmivu367";
+                    //Com Avaliação
+                    //txtMessage=txtMessage + "https://goo.gl/maps/77ChZd51z7e3KyaS7";
+
+                    txtMessage=txtMessage + "\n\n\nAcesse nosso WhatsApp!\n";
+                    txtMessage=txtMessage + "https://wa.me/5511970735606";
+
+                    txtMessage=txtMessage + "\n\nTels: 3685-4641 / 3683-3838 ";
+
+                    SmsManager smsManager = SmsManager.getDefault();
+                    ArrayList<String> parts = smsManager.divideMessage (txtMessage);
+                    int numParts = parts.size();
+                    smsManager.sendMultipartTextMessage(txtphoneNo,null,parts,null,null);
+                    iSends=iSends+1;
+
+                    txtAviso.setText("Serviço Iniciado ! \n Enviado para: "+txtnome+ "\n" + txtphoneNo);
+
+                    vUpdateTable(iIDTabela);
+                    txtAviso1.setText("Total de SMS A Enviar : " + Integer.toString(iEnviado)+"\n Total de SMS Enviado : "+ iSends );
+
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+
+            }
+        }, new Response.ErrorListener() {
+            @Override
+            public void onErrorResponse(VolleyError error) {
+
+            }
+        });
+        requestQueue.add(jsonObjectRequest);
+
+    }
+
+    public <MultipleMsg> void sendSMSMessageReturn_1(final String statusRetorno, final String mMessage) {
+
+        JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(POST, select_return_URL1,
+                new Response.Listener<JSONObject>() {
+                    @Override
+                    public void onResponse(JSONObject response) {
+                        int i = 0;
+                        try {
+                            JSONArray marcacoes = response.getJSONArray("marcacoes");
+                            JSONObject marcacao = marcacoes.getJSONObject(i);
+                            String phoneNo = marcacao.getString("telefone");
+                            iIDTabela = marcacao.getInt("ID");
+                            SmsManager smsManager = SmsManager.getDefault();
+                            ArrayList<String> parts = smsManager.divideMessage(mMessage);
+                            int numParts = parts.size();
+                            smsManager.sendMultipartTextMessage(phoneNo, null, parts, null, null);
+                            vUpdateReturn(iIDTabela, statusRetorno);
+                        } catch (JSONException e) {
+                            e.printStackTrace();
+
+                        }
+
+                    }
+                }, new Response.ErrorListener() {
+            @Override
+            public void onErrorResponse(VolleyError error) {
+
+            }
+        });
+        requestQueue1.add(jsonObjectRequest);
+    }
+
+    public <MultipleMsg> void sendSMSMessageReturn_2(final String statusRetorno, final String mMessage) {
+
+        JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(POST, select_return_URL2,
+                new Response.Listener<JSONObject>() {
+                    @Override
+                    public void onResponse(JSONObject response) {
+                        int i = 0;
+                        try {
+                            JSONArray marcacoes = response.getJSONArray("marcacoes");
+                            JSONObject marcacao = marcacoes.getJSONObject(i);
+                            String phoneNo = marcacao.getString("telefone");
+                            iIDTabela = marcacao.getInt("ID");
+                            SmsManager smsManager = SmsManager.getDefault();
+                            ArrayList<String> parts = smsManager.divideMessage(mMessage);
+                            int numParts = parts.size();
+                            smsManager.sendMultipartTextMessage(phoneNo, null, parts, null, null);
+                            vUpdateReturn(iIDTabela, statusRetorno);
+                        } catch (JSONException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }, new Response.ErrorListener() {
+            @Override
+            public void onErrorResponse(VolleyError error) {
+
+            }
+        });
+        requestQueue2.add(jsonObjectRequest);
+    }
+
+    public void vUpdateReturn(final int iID, final String statusRetorno) {
+
+        StringRequest request = new StringRequest(POST,
+                update_status_return_URL, new Response.Listener<String>() {
+            @Override
+            public void onResponse(String response) {
+
+            }
+        }, new Response.ErrorListener() {
+            @Override
+            public void onErrorResponse(VolleyError error) {
+            }
+        }) {
+            @Override
+            protected Map<String, String> getParams() throws AuthFailureError {
+                Map<String, String> parameters = new HashMap<String, String>();
+                parameters.put("id", Integer.toString(iID));
+                parameters.put("status_retorno", statusRetorno);
+                return parameters;
+            }
+        };
+        requestQueue.add(request);
+    }
+    private void startTimer() {
+        mCountDownTimer = new CountDownTimer(mTimeLeftInMillis, 1000) {
+            @Override
+            public void onTick(long millisUntilFinished) {
+                mTimeLeftInMillis = millisUntilFinished;
+                updateCountDownText();
+            }
+
+            @Override
+            public void onFinish() {
+                sendSMSMessage();
+
+
+                sendSMSMessageReturn_1("C","Obrigado ! \nCaso haja qualquer alteração na sua confirmação, favor entrar em contato!"); //gravar retorno para Confirmação de Consula
+                sendSMSMessageReturn_2("R","OK !\nEntraremos em contato para reagendar a sua consulta.!"); //gravar retorno para Reagendamento de Consula
+
+                //mCountDownTimer.cancel();
+                mTimeLeftInMillis = START_TIME_IN_MILLIS;
+                updateCountDownText();
+                txtAviso.setText("Serviço Iniciado ! \n Aguardando Dados...");
+
+                startTimer();
+            }
+        }.start();
+
+    }
+
+    private void updateCountDownText() {
+        int minutes = (int) (mTimeLeftInMillis / 1000) / 60;
+        int seconds = (int) (mTimeLeftInMillis / 1000) % 60;
+
+        String timeLeftFormatted = String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds);
+
+        mTextViewCountDown.setText(timeLeftFormatted);
+    }
+    public void select_al

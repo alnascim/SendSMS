@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">Bright Assistência Odontológica</string>
+    <string name="title_act_cliente">Act_Cliente</string>
+    <string name="title_act_auto">Act_Veiculos</string>
+    <string name="title_activity_act__whtas_app">Act_WhtasApp</string>
+    <string name="mensagem">%1$s Informa: Transação %2$s cartão final %3$s de R$ %4$s aprovada em %5$s as %6$s %7$s.</string>
+    <string name="title_activity_reagendar">Reagendar</string>
+    <string name="title_activity_reagendas">Reagendamentos</string>
+</resources>
